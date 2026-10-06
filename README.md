@@ -58,3 +58,4 @@ Currently in development.
 
 This is an applied undergraduate research project.  
 It combines existing methods (SimCSE + financial text) and carefully evaluates them — it does not claim a new architecture.
+It combines existing methods (SimCSE + financial text) and carefully evaluates them — it does not claim a new architecture.
