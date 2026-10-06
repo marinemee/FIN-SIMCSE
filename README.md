@@ -32,8 +32,9 @@ Build domain-specific sentence embeddings for financial text and test whether th
 ## Project Status
 
 Currently in development.
-
 ## Structure
+
+```text
 ├── data/               # Processed sentence data
 ├── src/
 │   ├── data_processing.py
@@ -45,6 +46,7 @@ Currently in development.
 ├── notebooks/          # Experiments & analysis
 ├── results/            # Metrics & plots
 └── README.md
+```
 
 
 ## Evaluation Metrics
