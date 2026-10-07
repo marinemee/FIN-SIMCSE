@@ -1,9 +1,15 @@
-import pandas as pd
-import numpy as np
+
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-
+import torch
+import pandas as pd
+import numpy as np
+from torch.utils.data import DataLoader
+from dataset import SimCSEDataset
+from model import SimCSEModel
+  # reuse your existing functions
 
 # -----------------------------
 # 1. Load data
@@ -140,3 +146,84 @@ results = evaluate_retrieval(similarity_matrix, relevance_dict)
 print("\nMiniLM Results:")
 for metric, value in results.items():
     print(f"  {metric}: {value:.4f}")    
+
+# -----------------------------
+# 6. evaluate_trained.py
+# -----------------------------
+
+
+
+DEVICE = torch.device("cpu")
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+CHECKPOINT = "checkpoints/simcse_minilm.pt"
+CSV_PATH = "data/sentences_2019.csv"
+BATCH_SIZE = 32
+MAX_LENGTH = 64
+
+
+def encode_sentences(model, sentences, tokenizer, max_length=64):
+    model.eval()
+    all_embeddings = []
+
+    with torch.no_grad():
+        for i in tqdm(range(0, len(sentences), BATCH_SIZE), desc="Encoding"):
+            batch = sentences[i:i+BATCH_SIZE]
+            encoded = tokenizer(
+                batch,
+                max_length=max_length,
+                padding=True,
+                truncation=True,
+                return_tensors="pt"
+            )
+            input_ids = encoded["input_ids"].to(DEVICE)
+            attention_mask = encoded["attention_mask"].to(DEVICE)
+
+            _, embeddings = model(input_ids, attention_mask)  # use mean-pooled (not projected)
+            all_embeddings.append(embeddings.cpu().numpy())
+
+    return np.vstack(all_embeddings)
+
+
+def main():
+    df = pd.read_csv(CSV_PATH)
+    test_df = df[df["split"] == "test"].reset_index(drop=True)
+    print(f"Test sentences: {len(test_df)}")
+
+    # Load model
+    model = SimCSEModel(model_name=MODEL_NAME).to(DEVICE)
+    model.load_state_dict(torch.load(CHECKPOINT, map_location=DEVICE))
+    model.eval()
+
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+    # Encode
+    embeddings = encode_sentences(
+        model,
+        test_df["sentence"].tolist(),
+        tokenizer,
+        max_length=MAX_LENGTH
+    )
+
+    print("Embeddings shape:", embeddings.shape)
+
+    # Similarity + Evaluation
+    similarity_matrix = cosine_similarity(embeddings)
+    relevance_dict = build_relevance_dict(test_df)
+
+    results = evaluate_retrieval(similarity_matrix, relevance_dict)
+
+    print("\n=== Fine-tuned SimCSE Results ===")
+    for metric, value in results.items():
+        print(f"  {metric}: {value:.4f}")
+
+
+
+
+
+
+
+    
+if __name__ == "__main__":
+    main()
+
